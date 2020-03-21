@@ -19,7 +19,10 @@
 import argparse
 import sys
 from apiclient import sample_tools
+from apiclient.discovery import build
 from oauth2client import client
+import httplib2
+from oauth2client.service_account import ServiceAccountCredentials
 
 TRACK = 'alpha'  # Can be 'alpha', beta', 'production' or 'rollout'
 
@@ -35,15 +38,22 @@ argparser.add_argument('apk_file',
 
 def main(argv):
   # Authenticate and construct service.
-  service, flags = sample_tools.init(
-      argv,
-      'androidpublisher',
-      'v3',
-      __doc__,
-      __file__, parents=[argparser],
-      scope='https://www.googleapis.com/auth/androidpublisher')
+  #service, flags = sample_tools.init(
+  #    argv,
+  #    'androidpublisher',
+  #    'v3',
+  #    __doc__,
+  #    __file__, parents=[argparser],
+  #    scope='https://www.googleapis.com/auth/androidpublisher')
+  credentials = ServiceAccountCredentials.from_json_keyfile_name(
+    'api-8231354783695972339-131617-dd4f2d105d2f.json', 'https://www.googleapis.com/auth/androidpublisher')
+  http = httplib2.Http()
+  http = credentials.authorize(http)
+
+  service = build('androidpublisher', 'v3', http=http)
 
   # Process flags and read their values.
+  flags = argparser.parse_args()
   package_name = flags.package_name
   apk_file = flags.apk_file
 
@@ -57,7 +67,7 @@ def main(argv):
         packageName=package_name,
         media_body=apk_file).execute()
 
-    print 'Version code %d has been uploaded' % apk_response['versionCode']
+    print ('Version code %d has been uploaded' % apk_response['versionCode'])
 
     track_response = service.edits().tracks().update(
         editId=edit_id,
@@ -69,13 +79,13 @@ def main(argv):
             u'status': u'completed',
         }]}).execute()
 
-    print 'Track %s is set with releases: %s' % (
-        track_response['track'], str(track_response['releases']))
+    print ('Track %s is set with releases: %s' % (
+        track_response['track'], str(track_response['releases'])))
 
     commit_request = service.edits().commit(
         editId=edit_id, packageName=package_name).execute()
 
-    print 'Edit "%s" has been committed' % (commit_request['id'])
+    print ('Edit "%s" has been committed' % (commit_request['id']))
 
   except client.AccessTokenRefreshError:
     print ('The credentials have been revoked or expired, please re-run the '
